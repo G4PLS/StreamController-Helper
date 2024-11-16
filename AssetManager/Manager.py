@@ -99,7 +99,7 @@ class AssetManager:
 
     def add_color(self, key: str, color: tuple[int,int,int,int]):
         if not self.colors.__contains__(key):
-            self.colors[key] = list(color)
+            self.colors[key] = color
 
     def remove_color(self, key: str):
         if self.colors.__contains__(key):
