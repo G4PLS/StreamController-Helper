@@ -98,6 +98,8 @@ class AssetManagerWindow(Adw.PreferencesWindow):
         if file:
             file_path = file.get_path()
             self.asset_manager.change_icon_by_path(preview.name, file_path, True)
+            self.asset_manager.add_change_icon_override(preview.name, file_path)
+
             image = self.asset_manager.get_rendered_icon(preview.name)
             preview.set_image(image)
 
@@ -114,6 +116,7 @@ class AssetManagerWindow(Adw.PreferencesWindow):
         rgba = dialog.choose_rgba_finish(task)
         preview.set_color_rgba(rgba)
         self.asset_manager.change_color(preview.name, preview.color)
+        self.asset_manager.add_change_color_override(preview.name, preview.color)
 
     #
     # DISPLAY
