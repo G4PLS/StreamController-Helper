@@ -4,7 +4,7 @@ from src.backend.DeckManagement.ImageHelpers import image2pixbuf
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GdkPixbuf, Gdk, Pango
+from gi.repository import Gtk, GdkPixbuf, Gdk, Pango
 
 class AssetPreview(Gtk.FlowBoxChild):
     def __init__(self, name: str, size: tuple[int, int] = (50,50), *args, **kwargs):

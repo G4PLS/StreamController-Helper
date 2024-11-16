@@ -2,10 +2,10 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, Pango, GdkPixbuf, Gdk, Gio
+from gi.repository import Gtk, Adw, Gio
 
-from data.plugins.com_gapls_AudioController.AssetManager.Manager import AssetManager
-from data.plugins.com_gapls_AudioController.AssetManager.Preview import IconPreview, ColorPreview
+from .Manager import AssetManager
+from .Preview import IconPreview, ColorPreview
 
 class AssetManagerWindow(Adw.PreferencesWindow):
     def __init__(self, asset_manager: AssetManager, *args, **kwargs):
