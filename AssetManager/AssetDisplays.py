@@ -6,7 +6,6 @@ Year: 2024
 import gi
 
 from GtkHelper.GtkHelper import better_disconnect
-from src.backend.DeckManagement.ImageHelpers import image2pixbuf
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -14,7 +13,7 @@ from gi.repository import Gtk, Adw
 from .AssetManager import AssetManager
 
 class AssetPreview(Gtk.FlowBoxChild):
-    def __init__(self, name: str, size: tuple[int, int] = (50,50), *args, **kwargs):
+    def __init__(self, window: "AssetManagerWindow", name: str, size: tuple[int, int] = (50,50), *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.set_css_classes(["asset-preview"])
         self.set_margin_start(5)
@@ -24,6 +23,28 @@ class AssetPreview(Gtk.FlowBoxChild):
 
         self.name = name
         self.size = size
+
+        self.set_size_request(self.size[0], self.size[1])
+        self.create_base_ui()
+
+        self.reset_button.connect("clicked", window.reset_button_clicked, self)
+
+    def create_base_ui(self):
+        self.overlay = Gtk.Overlay()
+
+        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.main_box.set_size_request(self.size[0], self.size[1])
+
+        self.overlay.set_child(self.main_box)
+
+        self.reset_button = Gtk.Button(icon_name="edit-undo-symbolic")
+        self.reset_button.set_halign(Gtk.Align.END)
+        self.reset_button.set_valign(Gtk.Align.START)
+        self.reset_button.set_margin_top(10)
+        self.reset_button.set_margin_end(10)
+        self.overlay.add_overlay(self.reset_button)
+
+        self.set_child(self.overlay)
 
         self.set_size_request(self.size[0], self.size[1])
 
@@ -68,3 +89,6 @@ class AssetManagerWindow(Adw.PreferencesWindow):
 
     def disconnect_flow_box(self, flow_box: Gtk.FlowBox, callback: callable):
         better_disconnect(flow_box, callback)
+
+    def reset_button_clicked(self, *args):
+        pass

@@ -34,10 +34,6 @@ class IconPreview(AssetPreview):
         return self.pixbuf.scale_simple(new_width, new_height, GdkPixbuf.InterpType.BILINEAR)
 
     def build(self):
-        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.main_box.set_size_request(self.size[0], self.size[1])
-        self.set_child(self.main_box)
-
         self.picture = Gtk.Picture(width_request=self.size[0], height_request=self.size[1], overflow=Gtk.Overflow.HIDDEN,
                                    content_fit=Gtk.ContentFit.COVER,
                                    hexpand=False, vexpand=False, keep_aspect_ratio=True)
@@ -49,8 +45,6 @@ class IconPreview(AssetPreview):
                                max_width_chars=20,
                                margin_start=20, margin_end=20)
         self.main_box.append(self.label)
-
-        self.set_size_request(self.size[0], self.size[1])
 
     def set_image(self, image):
         self.image = image
@@ -65,10 +59,6 @@ class ColorPreview(AssetPreview):
         self.build()
 
     def build(self):
-        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.main_box.set_size_request(self.size[0], self.size[1])
-        self.set_child(self.main_box)
-
         self.color_button = Gtk.ColorButton(title="Pick Color")
         self.color_button.set_sensitive(False)
         self.set_color(self.color)
@@ -80,8 +70,6 @@ class ColorPreview(AssetPreview):
                                max_width_chars=20,
                                margin_start=20, margin_end=20)
         self.main_box.append(self.label)
-
-        self.set_size_request(self.size[0], self.size[1])
 
     def set_color(self, color: tuple[int, int, int, int]):
         self.color = color
@@ -170,7 +158,7 @@ class Window(AssetManagerWindow):
         for name, icon in icons.items():
             _, render = icon.get_values()
 
-            preview = IconPreview(name=name, image=render, size=(100, 100), vexpand=False, hexpand=False)
+            preview = IconPreview(window=self, name=name, image=render, size=(100, 100), vexpand=False, hexpand=False)
             flow_box.append(preview)
 
     def display_colors(self, flow_box):
@@ -178,5 +166,17 @@ class Window(AssetManagerWindow):
 
         for name, color in colors.items():
             color = color.get_values()
-            preview = ColorPreview(name=name, color=color, size=(100, 100), hexpand=False, vexpand=False)
+            preview = ColorPreview(window=self, name=name, color=color, size=(100, 100), hexpand=False, vexpand=False)
             flow_box.append(preview)
+
+    def reset_button_clicked(self, *args):
+        preview = args[1]
+        if type(preview) == IconPreview:
+            self.asset_manager.icons.remove_override(preview.name)
+            _, render = self.asset_manager.icons.get_asset(preview.name).get_values()
+            preview.set_image(render)
+            self.asset_manager.save()
+        elif type(preview) == ColorPreview:
+            self.asset_manager.colors.remove_override(preview.name)
+            preview.set_color(self.asset_manager.colors.get_asset(preview.name).get_values())
+            self.asset_manager.save()
