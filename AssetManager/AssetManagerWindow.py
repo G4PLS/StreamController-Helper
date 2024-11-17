@@ -3,14 +3,14 @@ Author: G4PLS
 Year: 2024
 """
 from src.backend.DeckManagement.ImageHelpers import image2pixbuf
-from .Preview import AssetPreview
+from .AssetDisplays import AssetManagerWindow, AssetPreview
 from .AssetManager import AssetManager, Icon, Color
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, Gio, GdkPixbuf, Pango, Gdk
+from gi.repository import Gtk, Gio, GdkPixbuf, Pango, Gdk
 
 class IconPreview(AssetPreview):
     def __init__(self, image, *args, **kwargs):
@@ -88,93 +88,43 @@ class ColorPreview(AssetPreview):
         self.color_button.set_rgba(self.get_rgba())
 
     def set_color_rgba(self, color: Gdk.RGBA):
-        self.color = (int(color.red * 255), int(color.green * 255), int(color.green * 255), int(color.alpha * 255))
+        normalized = (color.red * 255,
+                      color.green * 255,
+                      color.blue * 255,
+                      color.alpha * 255)
+        self.color = normalized
         self.color_button.set_rgba(color)
 
     def get_rgba(self):
         rgba = Gdk.RGBA()
-        rgba.red = self.color[0] / 255
-        rgba.green = self.color[1] / 255
-        rgba.blue = self.color[2] / 255
-        rgba.alpha = self.color[3] / 255
+        normalized = tuple(color / 255.0 for color in self.color)
+        rgba.red = normalized[0]
+        rgba.green = normalized[1]
+        rgba.blue = normalized[2]
+        rgba.alpha = normalized[3]
         return rgba
 
-class AssetManagerWindow(Adw.PreferencesWindow):
-    def __init__(self, asset_manager: AssetManager, *args, **kwargs):
+class Window(AssetManagerWindow):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.asset_manager = asset_manager
-        self.set_size_request(500, 500)
+        icon_page, icon_box = self.build_asset_page("Icons", "Select Icons", "image-x-generic-symbolic")
+        color_page, color_box = self.build_asset_page("Colors", "Select Colors", "color-select-symbolic")
 
-        self.add(self.build_icon_chooser())
-        self.add(self.build_color_chooser())
+        icon_page.set_icon_name()
 
-        self.display_previews()
-        self.display_colors()
+        self.add(icon_page)
+        self.add(color_page)
 
-        self.connect_events()
+        self.connect_flow_box(icon_box, self.on_icon_clicked)
+        self.connect_flow_box(color_box, self.on_color_clicked)
 
-        self.show()
-
-    def build_icon_chooser(self):
-        page = Adw.PreferencesPage(title="Icon")
-        group = Adw.PreferencesGroup(title="Icon Settings")
-        page.add(group)
-
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        group.add(main_box)
-
-        self.icon_search_entry = Gtk.SearchEntry()
-        self.icon_search_entry.set_placeholder_text("Search icons...")
-        main_box.append(self.icon_search_entry)
-
-        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-
-        self.icon_flow_box = Gtk.FlowBox(hexpand=True, orientation=Gtk.Orientation.HORIZONTAL,
-                                    selection_mode=Gtk.SelectionMode.SINGLE, valign=Gtk.Align.START)
-        self.icon_flow_box.set_max_children_per_line(3)
-
-        scrolled_window.set_child(self.icon_flow_box)
-
-        bin_wrapper = Adw.Bin()
-        bin_wrapper.set_child(scrolled_window)
-        group.add(bin_wrapper)
-
-        return page
-
-    def build_color_chooser(self):
-        page = Adw.PreferencesPage(title="Color")
-        group = Adw.PreferencesGroup(title="Color Settings")
-        page.add(group)
-
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        group.add(main_box)
-
-        self.color_search_entry = Gtk.SearchEntry()
-        self.color_search_entry.set_placeholder_text("Search colors...")
-        main_box.append(self.color_search_entry)
-
-        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-
-        self.color_flow_box = Gtk.FlowBox(hexpand=True, orientation=Gtk.Orientation.HORIZONTAL,
-                                    selection_mode=Gtk.SelectionMode.SINGLE, valign=Gtk.Align.START)
-        self.color_flow_box.set_max_children_per_line(3)
-
-        scrolled_window.set_child(self.color_flow_box)
-
-        bin_wrapper = Adw.Bin()
-        bin_wrapper.set_child(scrolled_window)
-        group.add(bin_wrapper)
-
-        return page
+        self.display_icons(icon_box)
+        self.display_colors(color_box)
 
     #
     # EVENTS
     #
-
-    def connect_events(self):
-        self.icon_flow_box.connect("child-activated", self.on_icon_clicked)
-        self.color_flow_box.connect("child-activated", self.on_color_clicked)
 
     # Icon
 
@@ -214,19 +164,19 @@ class AssetManagerWindow(Adw.PreferencesWindow):
     # DISPLAY
     #
 
-    def display_previews(self):
+    def display_icons(self, flow_box):
         icons = self.asset_manager.icons.get_assets_merged()
 
         for name, icon in icons.items():
             _, render = icon.get_values()
 
             preview = IconPreview(name=name, image=render, size=(100, 100), vexpand=False, hexpand=False)
-            self.icon_flow_box.append(preview)
+            flow_box.append(preview)
 
-    def display_colors(self):
+    def display_colors(self, flow_box):
         colors = self.asset_manager.colors.get_assets_merged()
 
         for name, color in colors.items():
             color = color.get_values()
             preview = ColorPreview(name=name, color=color, size=(100, 100), hexpand=False, vexpand=False)
-            self.color_flow_box.append(preview)
+            flow_box.append(preview)
