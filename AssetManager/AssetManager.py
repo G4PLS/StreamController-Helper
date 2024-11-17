@@ -1,138 +1,82 @@
-import gi
+"""
+Author: G4PLS
+Year: 2024
+"""
 
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, Gio
+import json
+import os.path
 
-from .Manager import AssetManager
-from .Preview import IconPreview, ColorPreview
+from .AssetManagerBackend import Asset, Manager
+from src.backend.DeckManagement.Media.Media import Media
 
-class AssetManagerWindow(Adw.PreferencesWindow):
-    def __init__(self, asset_manager: AssetManager, *args, **kwargs):
+
+class Color(Asset):
+    def __init__(self, *args, **kwargs):
+        self._color: tuple[int, int, int, int] = (0,0,0,0)
+
         super().__init__(*args, **kwargs)
 
-        self.asset_manager = asset_manager
-        self.set_size_request(500, 500)
+    def change(self, *args, **kwargs):
+        self._color = kwargs.get("color", (0,0,0,0))
 
-        self.add(self.build_icon_chooser())
-        self.add(self.build_color_chooser())
+    def get_values(self):
+        return self._color
 
-        self.display_previews()
-        self.display_colors()
+    def to_json(self):
+        return list(self._color)
 
-        self.connect_events()
+    @classmethod
+    def from_json(cls, *args):
+        return cls(color=tuple(args[0]))
 
-        self.show()
+class Icon(Asset):
+    def __init__(self, *args, **kwargs):
+        self._icon: Media = None
+        self._rendered: Media = None
+        self._path: str = None
 
-    def build_icon_chooser(self):
-        page = Adw.PreferencesPage(title="Icon")
-        group = Adw.PreferencesGroup(title="Icon Settings")
-        page.add(group)
+        super().__init__(*args, **kwargs)
 
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        group.add(main_box)
+    def change(self, *args, **kwargs):
+        path = kwargs.get("path", None)
 
-        self.icon_search_entry = Gtk.SearchEntry()
-        self.icon_search_entry.set_placeholder_text("Search icons...")
-        main_box.append(self.icon_search_entry)
+        if os.path.isfile(path):
+            self._path = path
+            self._icon = Media.from_path(path)
+            self._rendered = self._icon.get_final_media()
 
-        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+    def get_values(self):
+        return self._icon, self._rendered
 
-        self.icon_flow_box = Gtk.FlowBox(hexpand=True, orientation=Gtk.Orientation.HORIZONTAL,
-                                    selection_mode=Gtk.SelectionMode.SINGLE, valign=Gtk.Align.START)
-        self.icon_flow_box.set_max_children_per_line(3)
+    def to_json(self):
+        return self._path
 
-        scrolled_window.set_child(self.icon_flow_box)
+    @classmethod
+    def from_json(cls, *args):
+        return cls(path=args[0])
 
-        bin_wrapper = Adw.Bin()
-        bin_wrapper.set_child(scrolled_window)
-        group.add(bin_wrapper)
+class AssetManager:
+    def __init__(self, save_path: str):
+        self.save_path = save_path
+        self.colors = Manager(Color, "colors")
+        self.icons = Manager(Icon, "icons")
+        self.load()
 
-        return page
+    def save(self):
+        save_json = {}
+        save_json[self.colors.get_save_key()] = self.colors.get_override_json()
+        save_json[self.icons.get_save_key()] = self.icons.get_override_json()
 
-    def build_color_chooser(self):
-        page = Adw.PreferencesPage(title="Color")
-        group = Adw.PreferencesGroup(title="Color Settings")
-        page.add(group)
+        with open(self.save_path, "w") as file:
+            json.dump(save_json, file, indent = 4)
 
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        group.add(main_box)
+    def load(self):
+        if not os.path.isfile(self.save_path):
+            return
 
-        self.color_search_entry = Gtk.SearchEntry()
-        self.color_search_entry.set_placeholder_text("Search colors...")
-        main_box.append(self.color_search_entry)
+        with open(self.save_path) as file:
+            json_data = json.load(file)
 
-        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-
-        self.color_flow_box = Gtk.FlowBox(hexpand=True, orientation=Gtk.Orientation.HORIZONTAL,
-                                    selection_mode=Gtk.SelectionMode.SINGLE, valign=Gtk.Align.START)
-        self.color_flow_box.set_max_children_per_line(3)
-
-        scrolled_window.set_child(self.color_flow_box)
-
-        bin_wrapper = Adw.Bin()
-        bin_wrapper.set_child(scrolled_window)
-        group.add(bin_wrapper)
-
-        return page
-
-    #
-    # EVENTS
-    #
-
-    def connect_events(self):
-        self.icon_flow_box.connect("child-activated", self.on_icon_clicked)
-        self.color_flow_box.connect("child-activated", self.on_color_clicked)
-
-    # Icon
-
-    def on_icon_clicked(self, flow_box, preview: IconPreview):
-        icon_dialog = Gtk.FileDialog.new()
-        icon_dialog.set_title("Icon")
-
-        icon_dialog.open(self, None, self.on_icon_dialog_response, preview)
-
-    def on_icon_dialog_response(self, dialog: Gtk.FileDialog, task, preview: IconPreview):
-        file = dialog.open_finish(task)
-
-        if file:
-            file_path = file.get_path()
-            self.asset_manager.change_icon_by_path(preview.name, file_path, True)
-            self.asset_manager.add_change_icon_override(preview.name, file_path)
-
-            image = self.asset_manager.get_rendered_icon(preview.name)
-            preview.set_image(image)
-
-    # Color
-
-    def on_color_clicked(self, flow_box, preview: ColorPreview):
-        color_dialog = Gtk.ColorDialog.new()
-        color_dialog.set_title("Color")
-
-        # Open the dialog
-        color_dialog.choose_rgba(self, preview.get_rgba(), None, self.on_color_dialog_response, preview)
-
-    def on_color_dialog_response(self, dialog: Gtk.ColorDialog, task: Gio.Task, preview: ColorPreview):
-        rgba = dialog.choose_rgba_finish(task)
-        preview.set_color_rgba(rgba)
-        self.asset_manager.change_color(preview.name, preview.color)
-        self.asset_manager.add_change_color_override(preview.name, preview.color)
-
-    #
-    # DISPLAY
-    #
-
-    def display_previews(self):
-        self.asset_manager.render_all_icons(True)
-        icons = self.asset_manager.get_rendered_icons()
-
-        for name, icon in icons.items():
-            preview = IconPreview(name=name, image=icon, size=(100, 100), vexpand=False, hexpand=False)
-            self.icon_flow_box.append(preview)
-
-    def display_colors(self):
-        colors = self.asset_manager.get_colors()
-
-        for name, color in colors.items():
-            preview = ColorPreview(name=name, color=color, size=(100, 100), hexpand=False, vexpand=False)
-            self.color_flow_box.append(preview)
+        if json_data:
+            self.icons.load_json(json_data)
+            self.colors.load_json(json_data)
